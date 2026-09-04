@@ -1,0 +1,327 @@
+{
+  "info": {
+    "name": "CodeJudge API v1",
+    "_postman_id": "8f1d5c1e-6c8b-4a53-9b1e-codejudge0001",
+    "description": "Submit code solutions and poll their rubric evaluation. Set `baseUrl` and `apiKey` in the collection variables. The POST request saves the returned submission id into `submissionId`, which the GET request uses.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-Api-Key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "apiKey", "value": "dev-api-key-change-me" },
+    { "key": "userId", "value": "demo" },
+    { "key": "submissionId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('health is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Problems",
+      "item": [
+        {
+          "name": "GET /api/v1/problems",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/problems", "host": ["{{baseUrl}}"], "path": ["api", "v1", "problems"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with four problems', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql(true);",
+                  "  pm.expect(body.data).to.have.lengthOf(4);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Submissions",
+      "item": [
+        {
+          "name": "POST /api/v1/submissions (Python)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"problemId\": \"sum-two-numbers\",\n  \"language\": \"python\",\n  \"code\": \"def sum_two(a, b):\\n    return a + b\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/submissions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "submissions"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 pending in ApiResult shape', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql(true);",
+                  "  pm.expect(body.data.status).to.eql('pending');",
+                  "  pm.expect(pm.response.headers.get('Location')).to.include('/api/v1/submissions/');",
+                  "  pm.collectionVariables.set('submissionId', body.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/v1/submissions (JavaScript)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"problemId\": \"sum-two-numbers\",\n  \"language\": \"javaScript\",\n  \"code\": \"function sumTwo(a, b) { return a + b; }\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/submissions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "submissions"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 pending', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('submissionId', pm.response.json().data.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/v1/submissions (C#)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"problemId\": \"sum-two-numbers\",\n  \"language\": \"cSharp\",\n  \"code\": \"public static class Solution { public static int Sum(int a, int b) => a + b; }\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/submissions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "submissions"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 pending', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('submissionId', pm.response.json().data.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/v1/submissions (restricted keyword → security fails)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"problemId\": \"sum-two-numbers\",\n  \"language\": \"python\",\n  \"code\": \"import os\\nos.system('ls')\\ndef sum_two(a, b):\\n    return a + b\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/submissions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "submissions"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 pending', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.collectionVariables.set('submissionId', pm.response.json().data.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/v1/submissions/{id}",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/submissions/{{submissionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "submissions", "{{submissionId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 in ApiResult shape', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql(true);",
+                  "  pm.expect(['pending', 'evaluating', 'completed', 'error']).to.include(body.data.status);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "GET /api/v1/users/{userId}/submissions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{userId}}/submissions?page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "{{userId}}", "submissions"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 paged result', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const data = pm.response.json().data;",
+                  "  pm.expect(data).to.have.keys('items', 'page', 'pageSize', 'totalCount', 'totalPages');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Error shapes",
+      "item": [
+        {
+          "name": "401 — missing API key",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/problems", "host": ["{{baseUrl}}"], "path": ["api", "v1", "problems"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 with errorCode 4001', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().error.errorCode).to.eql(4001);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — unknown problemId",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"problemId\": \"nope\",\n  \"language\": \"python\",\n  \"code\": \"x = 1\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/submissions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "submissions"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 with errorCode 3001', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.errorCode).to.eql(3001);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404 — unknown submission",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/submissions/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "submissions", "00000000-0000-0000-0000-000000000000"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 with errorCode 2001', () => {",
+                  "  pm.response.to.have.status(404);",
+                  "  pm.expect(pm.response.json().error.errorCode).to.eql(2001);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

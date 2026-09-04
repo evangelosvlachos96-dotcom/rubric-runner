@@ -1,26 +1,52 @@
-First, commit and push the current state:
-1. Run `dotnet build` and note whether it succeeds. Do not fix anything yet.
-2. Make sure PROJECT_STATUS.md is at the repo root and README.md has, right under the title, this line:
-   > **Status:** design complete; implementation in progress. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for milestones and remaining work. Full design in `docs/`.
-3. Open PROJECT_STATUS.md and correct the M5 checkboxes so they match what actually exists in src/CodeJudge.Api right now — tick only files that are present and compile.
-4. `git add -A`, then commit with message:
-   "feat: design docs, solution skeleton, domain/application/persistence layers, API in progress
+Final pass on the CodeJudge solution (repo: rubric-runner). Read docs/System_Design_v1.md, docs/Database_Design_v1.md and PROJECT_STATUS.md first; they are the source of truth. Work through the steps below in order. If a step fails, show me the exact error and stop. Never deviate from the design docs without asking me; every change that differs from v1 (new column, renamed status, changed default, dropped or deferred feature) must be appended as a row to the "Deviations from v1 design" table in PROJECT_STATUS.md in the same commit.
 
-   - System Design v1 and Database Design v1 in docs/
-   - Domain aggregate with state machine, Application services and problem catalog
-   - EF Core + Npgsql persistence with InitialCreate migration and claim query
-   - SubmissionsController v1 and ApiResult envelope
-   - PROJECT_STATUS.md tracks milestones and remaining work"
-5. If no remote exists, tell me and stop; otherwise `git push -u origin main` (or the current branch) and confirm the push succeeded.
+STEP 1 — BUILD AND TEST
+- `dotnet build` must pass with zero warnings; `dotnet test` must be green. Fix compile errors before anything else.
 
-Then continue with the remaining work in PROJECT_STATUS.md, in this order, committing after each milestone with a conventional-commit message and ticking the corresponding checkboxes in PROJECT_STATUS.md as part of the same commit:
+STEP 2 — FILL THE GAPS AGAINST THE ASSIGNMENT BRIEF
+Check each item exists and works; implement any that are missing, following the design docs:
+- Api layer: UsersController (GET /api/v1/users/{userId}/submissions?page=1&pageSize=20 → ApiResult<PagedResult<SubmissionSummaryDto>>, page ≥ 1, 1 ≤ pageSize ≤ 100), ProblemsController (GET /api/v1/problems), ExceptionMiddleware mapping exceptions to (HTTP status, CodeJudgeErrorCode) per System Design §6.10 and returning ApiResult for every 4xx/5xx with 4xx logged as warning and 5xx as error with TraceId, ValidationActionFilter running FluentValidation validators and throwing ValidationException (with SuppressModelStateInvalidFilter = true so all 400s are ApiResult), ApiKeyAuthenticationHandler<ApiKeyOptions> (scheme "ApiKey", header X-Api-Key, constant-time compare, 401 ApiResult with errorCode 4001, default scheme, [Authorize] on all controllers, /health and Swagger anonymous), Swagger with version-grouped docs, XML comments, ApiKey security definition + requirement filter, enums as camelCase strings, example request bodies. Program.cs: Serilog (console sink, request logging), JsonStringEnumConverter(JsonNamingPolicy.CamelCase), API versioning (URL segment, default 1.0), AddNpgSql health check, middleware order with ExceptionMiddleware first. appsettings.json and appsettings.Development.json with every key from System Design §10.
+- Evaluation: EvaluationSettings (PollingIntervalSeconds 2, BatchSize 5, LockDurationSeconds 90, CompileTimeoutSeconds 10, RunTimeoutSeconds 5, MaxAttempts 3, ValidateOnStart), EvaluationWorker : BackgroundService per System Design §6.4 and Database Design §8 (claim batch via ISubmissionClaimer in a scope, AttemptCount > MaxAttempts → Fail, else EvaluationService → Complete → SaveChangesAsync, try/catch per item, WorkerId + SubmissionId log scope, honours stoppingToken), ProcessRunner (stdin/stdout/stderr, timeout → Kill(entireProcessTree: true)), embedded Harness/harness.py and Harness/harness.js implementing the JSON protocol in System Design §6.5, PythonEvaluator (ast.parse compile step) and JavaScriptEvaluator (node --check compile step) with harness run, CSharpEvaluator (Roslyn compile with diagnostics; run via user code + generated harness class in a collectible AssemblyLoadContext, reflection invoke, Task.WaitAsync timeout). RestrictedKeywordPolicy must be the first rubric step and short-circuit; EvaluationService must always produce exactly three results with skipped ones flagged. If C# execution cannot be completed, make C# submissions reach status "completed" with a clear Test message, and record it as a known limitation in README, PROJECT_STATUS.md and the deviations table.
+- Tests: in CodeJudge.UnitTests add EvaluationServiceTests using a fake ICodeEvaluator (no runtimes needed) covering at minimum: a compile-failing submission → Compiles.Passed=false and Test.Skipped=true; a correct solution → all three passed; a restricted keyword → Security fails and both others skipped; a partial pass → message "k/N test cases passed". Add SubmissionStateMachineTests (all legal and illegal transitions), ProblemCatalogTests (every problem has a signature for every Language; every expected value is valid JSON), CreateSubmissionCommandValidatorTests, and Architecture/DependencyRuleTests with NetArchTest (Domain references nothing; Application does not reference Infrastructure or Api). In CodeJudge.IntegrationTests add CodeJudgeWebApplicationFactory (EF InMemory, no-op ISubmissionClaimer) and one test: POST then GET returns the pending submission in ApiResult shape; 401 without key; 400 with errorCode 3001 for unknown problemId.
+- Docker: Dockerfile (multi-stage mcr.microsoft.com/dotnet/sdk:10.0 → mcr.microsoft.com/dotnet/aspnet:10.0, `apt-get install -y python3 nodejs` in the runtime stage, non-root user, EXPOSE 8080) and docker-compose.yml (postgres:17 with named volume and healthcheck; api service built from the Dockerfile, depends_on postgres healthy, env ConnectionStrings__DefaultConnection, ApiKeySettings__Key, Database__ApplyMigrationsOnStartup=true). Run `docker build .` if Docker is available; otherwise say so and ensure the files are syntactically correct.
+- Samples: CodeJudge.postman_collection.json with every endpoint, X-Api-Key and baseUrl as collection variables, and a test script on POST that saves the returned id into a variable used by the GET; scripts/curl-samples.sh with one command per endpoint.
+- Rebuild and re-run tests. Commit: "feat: api layer, evaluation worker and evaluators, required tests, docker, postman collection".
 
-M5 (Api): UsersController, ProblemsController, ExceptionMiddleware, ValidationActionFilter, ApiKeyAuthenticationHandler, Swagger setup, Program.cs wiring, appsettings. Follow docs/System_Design_v1.md §6.7, §6.8, §6.10 and §10 exactly. Verify with `dotnet run` against local PostgreSQL that POST/GET return the ApiResult shape and that 400/401/404 carry the right errorCode. Commit: "feat(api): controllers, exception middleware, api-key auth, validation filter, swagger".
+STEP 3 — RUN AND VERIFY END TO END
+- Check PostgreSQL is reachable with the connection string in appsettings.Development.json; if not, tell me the exact command to start it and wait for my confirmation.
+- Start `dotnet run --project src/CodeJudge.Api` in the background and wait until it listens. Using the API key from appsettings, verify with curl:
+  a) GET /health → 200
+  b) POST /api/v1/submissions {"userId":"demo","problemId":"sum-two-numbers","language":"python","code":"def sum_two(a, b):\n    return a + b"} → 201, ApiResult with data.status "pending", Location header
+  c) poll GET /api/v1/submissions/{id} every 2 s for up to 30 s → data.status "completed"; print the three results with testsPassed/testsTotal
+  d) same as b with language "javascript" and code "function sumTwo(a, b) { return a + b; }" → completed, all passed
+  e) same as b with language "csharp" and code "public static class Solution { public static int Sum(int a, int b) => a + b; }" → completed (all passed if C# execution is implemented)
+  f) POST with code containing "import os\nos.system('ls')" → completed with security.passed=false and the other two skipped
+  g) POST with problemId "nope" → 400, error.errorCode 3001; POST without X-Api-Key → 401, error.errorCode 4001; GET a random GUID → 404, error.errorCode 2001; POST with language "cobol" → 400, error.errorCode 3002 or 1000
+  h) GET /api/v1/problems → 200 with 4 problems; GET /api/v1/users/demo/submissions?page=1&pageSize=10 → 200 with the submissions above
+- If anything fails, fix the smallest thing needed (following the docs), record any deviation, and re-run. Save the exact commands as scripts/verify-local.ps1 and scripts/verify-local.sh, parameterised by base URL and API key, so the whole check can be re-run with one command. Stop the API when done.
+- Commit: "chore: local verification scripts".
 
-M6 (worker + evaluators): ProcessRunner and the two harness scripts first, then PythonEvaluator and JavaScriptEvaluator, then EvaluationSettings and EvaluationWorker, then CSharpEvaluator last. Follow System Design §6.4, §6.5 and Database Design §8. Verify a Python sum-two-numbers submission reaches status completed with test.testsPassed = 4. Commit: "feat(evaluation): background worker, harness protocol, python/js/c# evaluators".
+STEP 4 — README.md
+Write the full README (repo is rubric-runner, solution is CodeJudge — state this in the first line) with this structure:
+- Title, one-paragraph overview, Status line linking PROJECT_STATUS.md, table of contents.
+- Overview: key features — DB-as-queue async evaluation (201 immediately, worker evaluates out of band), ordered short-circuiting rubric Security → Compiles → Test, problem catalog with multiple test cases and a language-agnostic JSON harness, Clean Architecture without CQRS/MediatR with one sentence on why, API-key auth, ApiResult envelope with integer error codes, enums end to end.
+- Architecture: the src/ tree with one-line purpose per project; dependency rule; submission state machine as ASCII; rubric order and skipped semantics; queue/claim summary with the worker settings table.
+- Tech stack table (.NET 10, ASP.NET Core controllers + Asp.Versioning, EF Core 10 + Npgsql + EFCore.NamingConventions, PostgreSQL 17, FluentValidation, Swashbuckle, Serilog, Roslyn, Python 3 and Node.js runtimes, xUnit + FluentAssertions + NSubstitute + NetArchTest).
+- Getting started: prerequisites (.NET 10 SDK; PostgreSQL 17 locally — include `winget install PostgreSQL.PostgreSQL.17` — or Docker; python and node on PATH), clone/restore, configure appsettings.Development.json (show the JSON), apply migrations command, run, Swagger URL, "Authenticate in Swagger" numbered steps for X-Api-Key, "Try it" with the curl from Step 3 and `scripts/verify-local.ps1`. Note that the API key is committed for development convenience and must move to a secrets store before real deployment.
+- Docker: `docker compose up --build`, env vars, ports.
+- Configuration table: every appsettings key with default and description.
+- API reference: endpoint table per controller (method, path, auth, description), ApiResult success and error JSON examples, error code table from System Design §6.10, enum values on the wire.
+- Problem catalog table: id, title, signature per language, number of test cases.
+- Testing: run unit / integration / all / coverage; what each covers; known limitations (C# executes in-process — not a sandbox; keyword check is a rubric item not a security control; plus anything unfinished).
+- Design decisions: short paragraph linking docs/System_Design_v1.md and docs/Database_Design_v1.md, then "What changed while building" copied from the deviations table.
+- Roadmap: unchecked items from PROJECT_STATUS.md plus the evolution items from System Design §11 (sandboxed runner, problems as data, SSE completion, JWT, scoring/leaderboard).
 
-M7 (tests): EvaluationServiceTests first (compile failure and correct solution — the two required by the brief), then SubmissionStateMachineTests, ProblemCatalogTests, validator tests, NetArchTest dependency rules, then the integration test with WebApplicationFactory + EF InMemory. Commit: "test: unit and integration tests for evaluation, domain, validation, architecture".
+STEP 5 — API DOCUMENTATION AND NOTE
+- Confirm Swagger shows version-grouped docs, XML summaries and <response> codes on every action, the ApiKey security scheme, enums as camelCase strings, and example request bodies.
+- Write docs/API_Documentation.md: 1 Authentication (X-Api-Key), 2 Base URL and versioning, 3 ApiResult structure (success and error JSON), 4 Submissions endpoints, 5 Users endpoints, 6 Problems endpoints, 7 Health, 8 Error codes reference, 9 Swagger authentication guide as a step table. For every endpoint: summary, auth, request body example, response-code table, example response.
+- Write docs/ARCHITECTURAL_NOTE.md: maximum 150 words explaining architectural choices and assumptions (Clean Architecture without CQRS, DB-as-queue over Hangfire, problem catalog + harness, PostgreSQL SKIP LOCKED, in-process C# limitation, API key). Count the words and print the count; it must be ≤ 150.
 
-M8 (repo files): docker-compose.yml, Dockerfile, Postman collection, scripts/curl-samples.sh, docs/API_Documentation.md. Do NOT write the final README — leave the placeholder. Commit: "chore: docker, postman collection, curl samples, api documentation".
-
-Rules: never deviate from the design docs without asking me first. Every time you make a decision that differs from the v1 docs (a new column, a renamed status, a changed default, a dropped feature), append a row to the "Deviations from v1 design" table in PROJECT_STATUS.md in the same commit — I need that table complete for the v2 documents. After each milestone, print the short git log and the updated deviations table.
+STEP 6 — STATUS AND COMMIT
+- Update PROJECT_STATUS.md: tick every completed item, leave unfinished items unticked, make sure the deviations table contains every change from this session.
+- Commit: "docs: README, API documentation, architectural note, project status" and push to the current branch.
+- Print `git log --oneline -8`, the full deviations table, and a list of any items still unticked in PROJECT_STATUS.md.

@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: codejudge-postgres
+    environment:
+      POSTGRES_DB: codejudge
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - codejudge-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d codejudge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: codejudge-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=codejudge;Username=postgres;Password=postgres"
+      ApiKeySettings__Key: "dev-api-key-change-me"
+      Database__ApplyMigrationsOnStartup: "true"
+    ports:
+      - "8080:8080"
+
+volumes:
+  codejudge-pgdata:

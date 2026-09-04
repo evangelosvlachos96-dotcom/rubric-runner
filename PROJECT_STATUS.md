@@ -67,24 +67,25 @@ brought back in line.
 - [x] `Evaluators/JavaScriptEvaluator.cs`
 - [x] `Security/RestrictedKeywordPolicy.cs`
 - [x] `Workers/EvaluationSettings.cs`, `Workers/EvaluationWorker.cs`
-- [~] `Evaluators/CSharpEvaluator.cs` — registered stub: compile always succeeds, run reports "not implemented"; Roslyn + collectible `AssemblyLoadContext` still to do
+- [x] `Evaluators/CSharpEvaluator.cs` — Roslyn compile with diagnostics, collectible `AssemblyLoadContext`, reflection invoke, `Task.WaitAsync` timeout
 
 ## M7 — Tests
 
-- [ ] `UnitTests/Evaluation/EvaluationServiceTests.cs` — compile failure, correct solution, and the
-      partial / restricted-keyword / timeout / harness-crash paths
+- [x] `UnitTests/Evaluation/EvaluationServiceTests.cs` — fake `ICodeEvaluator`: compile failure, correct solution,
+      restricted keyword, partial pass, timeout, harness crash, system errors
+- [x] `UnitTests/Evaluation/CSharpEvaluatorTests.cs` — real Roslyn evaluator: diagnostics, wrapping, wrong answer, exception, timeout
 - [x] `UnitTests/Domain/SubmissionStateMachineTests.cs`
 - [x] `UnitTests/Problems/ProblemCatalogTests.cs`
 - [x] `UnitTests/Validators/CreateSubmissionCommandValidatorTests.cs`
-- [ ] `UnitTests/Architecture/ArchitectureTests.cs` — NetArchTest layer rules
+- [x] `UnitTests/Architecture/DependencyRuleTests.cs` — NetArchTest layer rules
 - [x] `IntegrationTests/SubmissionFlowTests.cs` — `WebApplicationFactory` + EF InMemory
 
 ## M8 — Repository files
 
-- [ ] `docker-compose.yml` — PostgreSQL 17 + API
-- [ ] `Dockerfile` — multi-stage build, Python and Node in the runtime image
-- [ ] `postman/CodeJudge.postman_collection.json`
-- [ ] `scripts/curl-samples.sh`
+- [x] `docker-compose.yml` — PostgreSQL 17 (named volume, healthcheck) + API
+- [x] `Dockerfile` — multi-stage sdk:10.0 → aspnet:10.0, python3 + nodejs, non-root user, port 8080
+- [x] `postman/CodeJudge.postman_collection.json` — every endpoint, `baseUrl`/`apiKey` variables, POST saves `submissionId`
+- [x] `scripts/curl-samples.sh`
 - [ ] `docs/API_Documentation.md`
 - [ ] Final `README.md` — deliberately left as a placeholder until the implementation is signed off
 
@@ -97,8 +98,9 @@ brought back in line.
 | `dotnet build` | Succeeds, 0 warnings (`TreatWarningsAsErrors`) |
 | `dotnet test` | All unit and integration tests pass; no database or external runtime required |
 | Python submission end-to-end (`sum-two-numbers` → `completed`, `testsPassed = 4`) | Requires a local PostgreSQL and `python` on `PATH`; not exercised in CI |
-| C# submission end-to-end | Not yet — evaluator is a stub |
+| C# submission end-to-end | Covered by `CSharpEvaluatorTests` against the real Roslyn evaluator; no external runtime |
 | JavaScript submission end-to-end | Requires `node` on `PATH`; not exercised in CI |
+| `docker build .` | Dockerfile and compose file validated (`docker compose config`); image build not run — Docker Desktop daemon was not running on the dev machine |
 
 ---
 
@@ -114,3 +116,7 @@ and must be folded into the v2 documents.
 | 3 | Validator name (SD §6.7) | `CreateSubmissionRequestValidator` | `CreateSubmissionCommandValidator` | Validation runs on the Application-layer `CreateSubmissionCommand`, not the API request model, so the rules stay testable without referencing the API project. The action filter resolves the validator for the mapped command. |
 | 4 | `EvaluationResult` factory names (DB §9) | `Passed` / `Failed` / `SkippedResult` | `Pass` / `Fail` / `Skip` | `Passed` collides with the `bool Passed` data property that the contract requires. The data property keeps the contract name; the factory verbs were shortened. |
 | 5 | Startup configuration (SD §10) | config list has no migration key | added `Database:ApplyMigrationsOnStartup` (default `false`, `true` in Development) | Lets the Development environment and Docker Compose create the schema on boot without making that the behaviour in any other environment. Guarded so the EF InMemory provider used by tests is skipped. |
+| 6 | C# execution harness (SD §6.5) | "user code + generated harness class compiled together; harness invoked via reflection" | user code alone is compiled; the harness loop (argument binding, invocation, JSON shaping) runs host-side by reflection over the loaded assembly | Keeps submitted code from being compiled against `System.Text.Json` and keeps the harness protocol in one place instead of duplicated in generated C#. The observable contract — per-case `actual`/`error`/`durationMs` — is identical to the Python and JavaScript harnesses. |
+| 7 | C# submission shape (SD §6.5) | signature only, e.g. `int Sum(int a, int b)` | a bare method is accepted and wrapped in a generated `public class Solution`; code that already declares a type or namespace is compiled unchanged; `System`, `System.Collections.Generic`, `System.Linq`, `System.Text` are implicit global usings | The signature table implies a method, but a compilation unit cannot contain a bare method. Accepting both shapes keeps the documented signature honest without forcing boilerplate on the submitter. |
+| 8 | C# timeout enforcement (SD §6.5) | "on timeout the context is unloaded and the case marked `Timed out`" | the run is reported as timed out and stops, but the runaway thread is abandoned; `AssemblyLoadContext.Unload()` is called and completes only once that thread ends | .NET has no safe thread abort. Already named in SD §11 as the in-process weak spot; recorded here because the unload is not guaranteed, only requested. |
+| 9 | C# compile references (SD §6.5, unspecified) | — | submissions compile against a fixed allow-list: `System.Private.CoreLib`, `System.Runtime`, `System.Runtime.Extensions`, `System.Collections`, `System.Linq`, `System.Console`, `System.Text.RegularExpressions` | Referencing the whole trusted-platform set would expose `System.Diagnostics.Process`, `System.IO`, `System.Net`, … at compile time regardless of the keyword check. The list is the minimum the catalog problems need. |

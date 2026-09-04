@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CodeJudge.Application.Problems;
 using CodeJudge.Domain.Enums;
 using FluentAssertions;
@@ -36,6 +37,45 @@ public sealed class ProblemCatalogTests
         {
             problem.Cases.Should().Contain(c => c.IsSample, "problem '{0}' should expose a sample", problem.Id);
         }
+    }
+
+    [Fact]
+    public void Every_expected_value_and_argument_is_valid_self_contained_JSON()
+    {
+        foreach (var problem in _catalog.GetAll())
+        {
+            problem.Cases.Should().NotBeEmpty("problem '{0}' needs test cases", problem.Id);
+
+            foreach (var testCase in problem.Cases)
+            {
+                testCase.Expected.ValueKind.Should().NotBe(JsonValueKind.Undefined,
+                    "case {0} of '{1}' must have an expected value", testCase.Id, problem.Id);
+
+                var act = () => JsonDocument.Parse(testCase.Expected.GetRawText());
+                act.Should().NotThrow("expected value of case {0} in '{1}' must be valid JSON", testCase.Id, problem.Id);
+
+                foreach (var arg in testCase.Args)
+                {
+                    arg.ValueKind.Should().NotBe(JsonValueKind.Undefined);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void Case_ids_are_unique_within_a_problem()
+    {
+        foreach (var problem in _catalog.GetAll())
+        {
+            problem.Cases.Select(c => c.Id).Should().OnlyHaveUniqueItems("problem '{0}'", problem.Id);
+        }
+    }
+
+    [Fact]
+    public void Find_is_case_insensitive_and_null_safe()
+    {
+        _catalog.Find("TWO-SUM").Should().NotBeNull();
+        _catalog.Find("nope").Should().BeNull();
     }
 
     [Theory]
