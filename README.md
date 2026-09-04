@@ -1,5 +1,7 @@
 # CodeJudge
 
+> **Status:** design complete; implementation in progress. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for milestones and remaining work. Full design in `docs/`.
+
 Backend for a mini code-submission & evaluation platform: submit a solution, it is evaluated
 asynchronously against a three-item rubric (Security → Compiles → Test), and the status and results
 are exposed over a versioned REST API.
