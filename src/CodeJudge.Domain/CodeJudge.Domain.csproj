@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Domain references no NuGet packages and no other project (dependency rule, System Design §5.3). -->
+
+</Project>

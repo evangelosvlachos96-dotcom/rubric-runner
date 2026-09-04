@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodeJudge.Api/CodeJudge.Api.csproj" />
+    <Project Path="src/CodeJudge.Application/CodeJudge.Application.csproj" />
+    <Project Path="src/CodeJudge.Domain/CodeJudge.Domain.csproj" />
+    <Project Path="src/CodeJudge.Infrastructure/CodeJudge.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodeJudge.IntegrationTests/CodeJudge.IntegrationTests.csproj" />
+    <Project Path="tests/CodeJudge.UnitTests/CodeJudge.UnitTests.csproj" />
+  </Folder>
+</Solution>
