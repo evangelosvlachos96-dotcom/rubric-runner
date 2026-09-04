@@ -9,6 +9,32 @@ brought back in line.
 
 ---
 
+## Assignment brief — requirement by requirement
+
+| Requirement | Status | Where |
+|---|---|---|
+| POST submission (`userId`, `problemId`, `code`, `language` ∈ C#/Python/JS) → id + `pending` | ✅ | `SubmissionsController.Create` |
+| GET status/result by id — status, rubric items, output/errors | ✅ | `SubmissionsController.GetById` |
+| Async evaluation: Compiles/Parses · Passes Basic Test · Security Check · per-item pass/fail + messages | ✅ | `EvaluationService`, evaluators, `RestrictedKeywordPolicy` |
+| Background processing; API stays responsive | ✅ | `EvaluationWorker` + `SubmissionClaimer` (DB-as-queue, `SKIP LOCKED`) |
+| Database (PostgreSQL preferred) with submissions, status, results, timestamps | ✅ | EF Core + Npgsql, migration `InitialCreate` |
+| Project organisation: data / API / jobs / evaluation separated | ✅ | 4 projects, `DependencyRuleTests` |
+| Async patterns throughout | ✅ | `async`/`await`, `CancellationToken` end to end |
+| REST conventions, clear errors, Swagger/OpenAPI | ✅ | `ApiResult<T>`, `CodeJudgeErrorCode`, `ExceptionMiddleware`, Swashbuckle |
+| API key on all endpoints | ✅ | `ApiKeyAuthenticationHandler` (`X-Api-Key`) |
+| ≥ 2 unit tests on evaluation logic (compile failure, correct solution) | ✅ | `EvaluationServiceTests` (+ keyword, partial, timeout, crash), `CSharpEvaluatorTests` |
+| *Stretch:* multiple languages | ✅ | C# (Roslyn), Python, JavaScript — all verified end to end |
+| *Stretch:* paginated list per user | ✅ | `UsersController` |
+| *Stretch:* logging | ✅ | Serilog; `SubmissionId`/`WorkerId` scopes in the worker |
+| *Stretch:* Dockerfile | ✅ files · ⚠️ build not run | `Dockerfile`, `docker-compose.yml` |
+| *Deliverable:* README with build/run/env/tests/DB | ✅ | `README.md` |
+| *Deliverable:* REST API docs | ✅ | Swagger + `docs/API_Documentation.md` |
+| *Deliverable:* schema / migration scripts | ✅ | `src/CodeJudge.Infrastructure/Persistence/Migrations` |
+| *Deliverable:* sample curl / Postman | ✅ | `scripts/curl-samples.sh`, `scripts/verify-local.*`, `postman/CodeJudge.postman_collection.json` |
+| *Deliverable:* architectural note ≤ 150 words | ✅ | `docs/ARCHITECTURAL_NOTE.md` (150 words) |
+
+---
+
 ## M1 — Design documents
 
 - [x] `docs/System_Design_v1.md`
@@ -87,8 +113,10 @@ brought back in line.
 - [x] `postman/CodeJudge.postman_collection.json` — every endpoint, `baseUrl`/`apiKey` variables, POST saves `submissionId`
 - [x] `scripts/curl-samples.sh`
 - [x] `scripts/verify-local.sh`, `scripts/verify-local.ps1` — one-command end-to-end check (a–h), parameterised by base URL and API key
-- [ ] `docs/API_Documentation.md`
-- [ ] Final `README.md` — deliberately left as a placeholder until the implementation is signed off
+- [x] `docs/API_Documentation.md` — every endpoint with auth, request, response-code table and real captured examples
+- [x] `docs/ARCHITECTURAL_NOTE.md` — 150 words
+- [x] Final `README.md`
+- [ ] `docker build` / `docker compose up` executed on a machine with a running Docker daemon
 
 ---
 
@@ -103,6 +131,7 @@ brought back in line.
 | JavaScript submission end-to-end | Verified end-to-end by the scripts (`node` v24) |
 | Error shapes 400/3001, 401/4001, 404/2001, 400/3002; `/problems`; user history | Verified by the scripts; 3001/3002/4001/2001 also covered by integration tests |
 | `docker build .` | Dockerfile and compose file validated (`docker compose config`); image build not run — Docker Desktop daemon was not running on the dev machine |
+| Swagger | Confirmed from `/swagger/v1/swagger.json`: one `v1` document, summary + response codes on all four actions, `ApiKey` security scheme applied to every operation, enums rendered as camelCase strings, example request body (`UseAllOfToExtendReferenceSchemas` keeps the `language` example) |
 
 ---
 
