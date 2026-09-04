@@ -41,7 +41,7 @@ public sealed class SubmissionsController : ControllerBase
 
         return CreatedAtAction(
             nameof(GetById),
-            new { id = dto.Id, version = "1.0" },
+            new { id = dto.Id, version = "1" }, // "1" (not "1.0") so Location reads /api/v1/submissions/{id}
             new ApiResult<SubmissionDto>(dto, "Submission accepted and queued for evaluation."));
     }
 

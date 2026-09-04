@@ -64,7 +64,7 @@ brought back in line.
 - [x] `Evaluators/Harness/harness.py`, `Evaluators/Harness/harness.js` (embedded resources)
 - [x] `Evaluators/HarnessProtocol.cs` — stdout → `HarnessRunResult`
 - [x] `Evaluators/PythonEvaluator.cs`
-- [x] `Evaluators/JavaScriptEvaluator.cs`
+- [x] `Evaluators/JavaScriptEvaluator.cs` — `node --check` parse step, `harness.js` run (was a stub until the Step 3 verification)
 - [x] `Security/RestrictedKeywordPolicy.cs`
 - [x] `Workers/EvaluationSettings.cs`, `Workers/EvaluationWorker.cs`
 - [x] `Evaluators/CSharpEvaluator.cs` — Roslyn compile with diagnostics, collectible `AssemblyLoadContext`, reflection invoke, `Task.WaitAsync` timeout
@@ -86,6 +86,7 @@ brought back in line.
 - [x] `Dockerfile` — multi-stage sdk:10.0 → aspnet:10.0, python3 + nodejs, non-root user, port 8080
 - [x] `postman/CodeJudge.postman_collection.json` — every endpoint, `baseUrl`/`apiKey` variables, POST saves `submissionId`
 - [x] `scripts/curl-samples.sh`
+- [x] `scripts/verify-local.sh`, `scripts/verify-local.ps1` — one-command end-to-end check (a–h), parameterised by base URL and API key
 - [ ] `docs/API_Documentation.md`
 - [ ] Final `README.md` — deliberately left as a placeholder until the implementation is signed off
 
@@ -97,9 +98,10 @@ brought back in line.
 |---|---|
 | `dotnet build` | Succeeds, 0 warnings (`TreatWarningsAsErrors`) |
 | `dotnet test` | All unit and integration tests pass; no database or external runtime required |
-| Python submission end-to-end (`sum-two-numbers` → `completed`, `testsPassed = 4`) | Requires a local PostgreSQL and `python` on `PATH`; not exercised in CI |
-| C# submission end-to-end | Covered by `CSharpEvaluatorTests` against the real Roslyn evaluator; no external runtime |
-| JavaScript submission end-to-end | Requires `node` on `PATH`; not exercised in CI |
+| Python submission end-to-end (`sum-two-numbers` → `completed`, `testsPassed = 4`) | Verified with `scripts/verify-local.sh` / `.ps1` against local PostgreSQL 18 (see deviation 10) |
+| C# submission end-to-end | Verified end-to-end by the scripts; also covered by `CSharpEvaluatorTests` (real Roslyn, no runtime needed) |
+| JavaScript submission end-to-end | Verified end-to-end by the scripts (`node` v24) |
+| Error shapes 400/3001, 401/4001, 404/2001, 400/3002; `/problems`; user history | Verified by the scripts; 3001/3002/4001/2001 also covered by integration tests |
 | `docker build .` | Dockerfile and compose file validated (`docker compose config`); image build not run — Docker Desktop daemon was not running on the dev machine |
 
 ---
@@ -120,3 +122,5 @@ and must be folded into the v2 documents.
 | 7 | C# submission shape (SD §6.5) | signature only, e.g. `int Sum(int a, int b)` | a bare method is accepted and wrapped in a generated `public class Solution`; code that already declares a type or namespace is compiled unchanged; `System`, `System.Collections.Generic`, `System.Linq`, `System.Text` are implicit global usings | The signature table implies a method, but a compilation unit cannot contain a bare method. Accepting both shapes keeps the documented signature honest without forcing boilerplate on the submitter. |
 | 8 | C# timeout enforcement (SD §6.5) | "on timeout the context is unloaded and the case marked `Timed out`" | the run is reported as timed out and stops, but the runaway thread is abandoned; `AssemblyLoadContext.Unload()` is called and completes only once that thread ends | .NET has no safe thread abort. Already named in SD §11 as the in-process weak spot; recorded here because the unload is not guaranteed, only requested. |
 | 9 | C# compile references (SD §6.5, unspecified) | — | submissions compile against a fixed allow-list: `System.Private.CoreLib`, `System.Runtime`, `System.Runtime.Extensions`, `System.Collections`, `System.Linq`, `System.Console`, `System.Text.RegularExpressions` | Referencing the whole trusted-platform set would expose `System.Diagnostics.Process`, `System.IO`, `System.Net`, … at compile time regardless of the keyword check. The list is the minimum the catalog problems need. |
+| 10 | Database version / local setup (SD §6.11, §10) | PostgreSQL 17 on `localhost:5432`, `postgres`/`postgres` | verified locally against **PostgreSQL 18.6 on port 5433** with a dedicated `codejudge`/`codejudge` login owning database `codejudge`; `appsettings.Development.json` carries that connection string, `appsettings.json` and `docker-compose.yml` keep the design default (`postgres:17`, 5432) | The dev machine already had PostgreSQL 16 on 5432 and a fresh PostgreSQL 18 on 5433. A least-privilege login was created instead of using the superuser; the superuser password is not stored anywhere in the repo. Nothing in the schema or queries is version-specific (`FOR UPDATE SKIP LOCKED`, partial indexes, `jsonb` all exist since 9.5). |
+| 11 | Binding errors → error code (SD §6.7, §6.10) | validation via FluentValidation; `3002 UnsupportedLanguage` raised by "Validator / `UnsupportedLanguageException`" | `ValidationActionFilter` also converts `ModelState` binding failures (malformed JSON, unknown enum value such as `"language": "cobol"`) into `ValidationException`; a failure on `language` carries `UnsupportedLanguage` → `400/3002`, any other → `400/1000` | With `SuppressModelStateInvalidFilter = true` the built-in 400 is gone, so binding failures otherwise reached the action with a null body and became a `500/0`. Routing them through the same exception path keeps "every 4xx is an `ApiResult`" true. |
