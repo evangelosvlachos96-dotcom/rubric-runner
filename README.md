@@ -4,6 +4,17 @@ Backend for a mini code-submission and evaluation platform. Users submit a solut
 
 > **Status:** design complete; implementation verified end to end. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for milestones, known limitations and remaining work. Full design in [`docs/`](docs/).
 
+**Documentation**
+
+- [`docs/System_Design_v1.md`](docs/System_Design_v1.md) — system design, as designed (options, decisions, diagrams)
+- [`docs/Database_Design_v1.md`](docs/Database_Design_v1.md) — database design, as designed (ER, 3NF, data dictionary, claim query, indexes)
+- [`docs/System_Design_v2.md`](docs/System_Design_v2.md) — system design, as built (every change from v1 with its reason)
+- [`docs/Database_Design_v2.md`](docs/Database_Design_v2.md) — database design, as built
+- [`docs/API_Documentation.md`](docs/API_Documentation.md) — every endpoint with real request/response examples and the error-code reference
+- [`docs/ARCHITECTURAL_NOTE.md`](docs/ARCHITECTURAL_NOTE.md) — the 150-word architectural note
+- [`docs/prompts/phase1-claude-code-prompt.md`](docs/prompts/phase1-claude-code-prompt.md) — the Phase 1 build prompt the skeleton was generated from
+- [`PROJECT_STATUS.md`](PROJECT_STATUS.md) — milestones, verification status, deviations from v1
+
 ---
 
 ## Table of Contents
@@ -49,7 +60,7 @@ src/
 tests/
   CodeJudge.UnitTests/       ← Domain state machine, EvaluationService rubric, CSharpEvaluator, problem catalog, validators, architecture rules.
   CodeJudge.IntegrationTests/← HTTP contract through WebApplicationFactory with EF InMemory.
-docs/                        ← System and database design (v1), API documentation, architectural note.
+docs/                        ← System and database design (v1 as designed, v2 as built), API documentation, architectural note, prompts/.
 postman/, scripts/           ← Postman collection, curl samples, one-command end-to-end verification.
 ```
 
@@ -374,7 +385,7 @@ dotnet test --collect:"XPlat Code Coverage"                  # coverage (coverle
 
 ## Design Decisions
 
-The design was written before the code and is the authoritative reference: [`docs/System_Design_v1.md`](docs/System_Design_v1.md) (architecture options with pros/cons, use cases, sequence and state diagrams, every decision with its alternatives) and [`docs/Database_Design_v1.md`](docs/Database_Design_v1.md) (ER, 3NF, data dictionary, CRUD matrix, claim query, index strategy). The 150-word summary is [`docs/ARCHITECTURAL_NOTE.md`](docs/ARCHITECTURAL_NOTE.md).
+The design was written before the code and is the authoritative reference: [`docs/System_Design_v1.md`](docs/System_Design_v1.md) (architecture options with pros/cons, use cases, sequence and state diagrams, every decision with its alternatives) and [`docs/Database_Design_v1.md`](docs/Database_Design_v1.md) (ER, 3NF, data dictionary, CRUD matrix, claim query, index strategy). The as-built versions — [`docs/System_Design_v2.md`](docs/System_Design_v2.md) and [`docs/Database_Design_v2.md`](docs/Database_Design_v2.md) — record every deviation with its reason. The 150-word summary is [`docs/ARCHITECTURAL_NOTE.md`](docs/ARCHITECTURAL_NOTE.md).
 
 **What changed while building** — the full table with reasons is in [PROJECT_STATUS.md](PROJECT_STATUS.md#deviations-from-v1-design):
 
@@ -391,6 +402,7 @@ The design was written before the code and is the authoritative reference: [`doc
 | 9 | C# compile references | unspecified | fixed allow-list of BCL assemblies |
 | 10 | Local database | PostgreSQL 17 on 5432, `postgres`/`postgres` | verified on PostgreSQL 18.6 on 5433 with a dedicated `codejudge` login |
 | 11 | Binding errors | not specified | `ModelState` failures → `ValidationException`; unknown `language` → `400/3002`, other → `400/1000` |
+| 12 | Lock duration | SD §4.1/§7 say 60 s, DB §8 says 90 s | 90 s (`Evaluation:LockDurationSeconds`), per the database design |
 
 ---
 
