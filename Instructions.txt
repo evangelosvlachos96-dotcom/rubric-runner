@@ -1,1 +1,24 @@
-Option 1. Use the existing PostgreSQL 16 service. Create a dedicated login and database instead of using the superuser: connect as postgres with password <YOUR_PASSWORD>, run CREATE USER codejudge WITH PASSWORD 'codejudge'; CREATE DATABASE codejudge OWNER codejudge; then set appsettings.Development.json to Host=localhost;Port=5432;Database=codejudge;Username=codejudge;Password=codejudge and re-run Step 3. Do not commit the postgres superuser password anywhere. Record "verified locally against PostgreSQL 16; design targets 17" in the deviations table.
+I have unzipped a documentation bundle into a folder named `docs-bundle/` at the repo root. It contains README.md, PROJECT_STATUS.md, apply-docs.ps1, and docs/ with API_Documentation.md, ARCHITECTURAL_NOTE.md, System_Design_v1.md, System_Design_v2.md, Database_Design_v1.md, Database_Design_v2.md. Integrate it as follows:
+
+1. Move the files into place, overwriting existing ones:
+   - docs-bundle/README.md → README.md
+   - docs-bundle/PROJECT_STATUS.md → PROJECT_STATUS.md
+   - docs-bundle/docs/*.md → docs/ (overwrite System_Design_v1.md and Database_Design_v1.md; the others are new)
+   - If Instructions.txt exists at the root, `git mv` it to docs/prompts/phase1-claude-code-prompt.md.
+   - Delete docs-bundle/ and apply-docs.ps1 afterwards.
+
+2. Reconcile the docs with the actual code — the docs were written from the repo state plus your last report, so verify and correct them where they are wrong. Check specifically:
+   - JavaScriptEvaluator: is it fully implemented (node --check + harness.js run) or still a TODO stub? Update PROJECT_STATUS.md (M6 checkbox, requirement table, Known limitations) and README.md (Testing → Known limitations, Tech stack) to match reality.
+   - Every file, class and script the docs reference must exist with that name: scripts/verify-local.ps1, scripts/verify-local.sh, scripts/curl-samples.sh, CodeJudge.postman_collection.json, Dockerfile, docker-compose.yml, tests listed in PROJECT_STATUS.md M7 (EvaluationServiceTests, CSharpEvaluatorTests, DependencyRuleTests, SubmissionFlowTests). Fix the docs if a name differs; do not rename code to match docs.
+   - README Configuration table and Docker env-var table must match appsettings.json and docker-compose.yml exactly (keys, defaults, ports).
+   - README API reference and docs/API_Documentation.md: confirm routes, query parameter names/defaults, DTO field names (e.g. results item fields, PagedResult fields, ProblemDto fields) against the controllers and DTOs; correct any mismatch in the docs.
+   - README Problem Catalog table must match ProblemCatalog.cs (ids, signatures per language, number of cases).
+   - Error codes in README and API_Documentation.md must match CodeJudgeErrorCode.cs and the mapping in ExceptionMiddleware.cs.
+   - The README quick-start curl example and the JSON response examples must reflect the real serialised shape (run the integration tests or inspect the DTOs; do not invent fields).
+   - docs/ARCHITECTURAL_NOTE.md must stay ≤ 150 words after any edit; print the word count.
+
+3. Add a "Documentation" section to the README table of contents area linking every file in docs/ with a one-line description, if not already present.
+
+4. Run `dotnet build` and `dotnet test` to confirm nothing in the tree broke.
+
+5. Commit as "docs: README, API documentation, architectural note, as-built design v2, project status" and push to the current branch. Then print `git log --oneline -5` and a short list of every correction you made to the docs in step 2.

@@ -1,0 +1,5 @@
+# Architectural Note
+
+CodeJudge uses Clean Architecture with four projects and compiler-enforced inward dependencies, but omits CQRS, MediatR and generic repositories: four endpoints do not justify the ceremony, and the design documents record the alternatives considered. The `submissions` table doubles as the job queue — inserting a row is the enqueue, so acceptance and scheduling are one atomic write, and a `BackgroundService` claims work with PostgreSQL `FOR UPDATE SKIP LOCKED`; Hangfire and in-memory channels were rejected for dual-write and durability reasons. Evaluation follows an ordered, short-circuiting rubric (Security → Compiles → Test) over a problem catalog with multiple test cases, executed through a language-agnostic JSON harness so adding a language is one evaluator plus one script. Assumptions: a static API key suffices (`userId` is client-asserted); the keyword scan is a rubric item, not a security boundary; C# runs in-process and Python/JS in child processes — real isolation needs a containerised runner, documented as the next step.
+
+*(149 words)*
