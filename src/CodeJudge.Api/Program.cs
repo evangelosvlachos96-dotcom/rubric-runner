@@ -32,6 +32,9 @@ builder.Services
 // All 400s flow through ExceptionMiddleware as ApiResult, not the built-in model-state response.
 builder.Services.Configure<ApiBehaviorOptions>(options => options.SuppressModelStateInvalidFilter = true);
 
+// Generated links (e.g. the 201 Location header) use the documented lowercase form /api/v1/submissions/{id}.
+builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
+
 builder.Services
     .AddApiVersioning(options =>
     {

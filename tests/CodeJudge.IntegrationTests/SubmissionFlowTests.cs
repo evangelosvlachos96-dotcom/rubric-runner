@@ -55,6 +55,47 @@ public sealed class SubmissionFlowTests : IClassFixture<CodeJudgeWebApplicationF
     }
 
     [Fact]
+    public async Task Post_unknown_language_returns_400_with_errorCode_3002()
+    {
+        // The enum converter rejects "cobol" during binding; that must surface as an ApiResult 400,
+        // not the built-in model-state response and not a 500.
+        var response = await AuthedClient().PostAsJsonAsync("/api/v1/submissions", new
+        {
+            userId = "user-1",
+            problemId = "sum-two-numbers",
+            language = "cobol",
+            code = "x = 1",
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ErrorCodeOf(response)).Should().Be(3002);
+    }
+
+    [Fact]
+    public async Task Get_unknown_submission_returns_404_with_errorCode_2001()
+    {
+        var response = await AuthedClient().GetAsync($"/api/v1/submissions/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await ErrorCodeOf(response)).Should().Be(2001);
+    }
+
+    [Fact]
+    public async Task Created_Location_header_uses_documented_v1_lowercase_path()
+    {
+        var response = await AuthedClient().PostAsJsonAsync("/api/v1/submissions", new
+        {
+            userId = "user-1",
+            problemId = "sum-two-numbers",
+            language = "Python",
+            code = "def sum_two(a, b): return a + b",
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.Headers.Location!.PathAndQuery.Should().StartWith("/api/v1/submissions/");
+    }
+
+    [Fact]
     public async Task Post_then_Get_returns_pending_submission_in_ApiResult_shape()
     {
         var client = AuthedClient();

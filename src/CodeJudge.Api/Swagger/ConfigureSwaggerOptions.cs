@@ -42,6 +42,10 @@ public sealed class ConfigureSwaggerOptions : IConfigureOptions<SwaggerGenOption
 
         options.EnableAnnotations();
 
+        // OpenAPI 3.0 ignores siblings of $ref, which drops the <example> on enum-typed properties
+        // (e.g. CreateSubmissionRequest.Language); allOf-wrapping keeps the examples in the request body.
+        options.UseAllOfToExtendReferenceSchemas();
+
         options.AddSecurityDefinition(ApiKeyAuthenticationHandler.SchemeName, new OpenApiSecurityScheme
         {
             Name = ApiKeyAuthenticationHandler.HeaderName,

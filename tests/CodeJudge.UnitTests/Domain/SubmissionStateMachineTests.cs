@@ -120,4 +120,82 @@ public sealed class SubmissionStateMachineTests
 
         act.Should().Throw<InvalidStatusTransitionException>();
     }
+
+    [Fact]
+    public void Claim_after_completed_throws()
+    {
+        var submission = NewSubmission();
+        submission.Claim("worker-1", DateTime.UtcNow.AddSeconds(90));
+        submission.Complete(ThreeResults());
+
+        var act = () => submission.Claim("worker-2", DateTime.UtcNow.AddSeconds(90));
+
+        act.Should().Throw<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public void Claim_after_error_throws()
+    {
+        var submission = NewSubmission();
+        submission.Claim("worker-1", DateTime.UtcNow.AddSeconds(90));
+        submission.Fail("boom");
+
+        var act = () => submission.Claim("worker-2", DateTime.UtcNow.AddSeconds(90));
+
+        act.Should().Throw<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public void Complete_twice_throws()
+    {
+        var submission = NewSubmission();
+        submission.Claim("worker-1", DateTime.UtcNow.AddSeconds(90));
+        submission.Complete(ThreeResults());
+
+        var act = () => submission.Complete(ThreeResults());
+
+        act.Should().Throw<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public void Fail_after_completed_throws()
+    {
+        var submission = NewSubmission();
+        submission.Claim("worker-1", DateTime.UtcNow.AddSeconds(90));
+        submission.Complete(ThreeResults());
+
+        var act = () => submission.Fail("too late");
+
+        act.Should().Throw<InvalidStatusTransitionException>();
+    }
+
+    [Fact]
+    public void Complete_attaches_results_to_the_submission()
+    {
+        var submission = NewSubmission();
+        submission.Claim("worker-1", DateTime.UtcNow.AddSeconds(90));
+
+        submission.Complete(ThreeResults());
+
+        submission.Results.Should().OnlyContain(r => r.SubmissionId == submission.Id);
+    }
+
+    [Theory]
+    [InlineData("", "sum-two-numbers", "code")]
+    [InlineData("user-1", "", "code")]
+    [InlineData("user-1", "sum-two-numbers", "")]
+    public void Create_rejects_blank_required_fields(string userId, string problemId, string code)
+    {
+        var act = () => Submission.Create(userId, problemId, Language.Python, code);
+
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
+    public void Create_rejects_undefined_language()
+    {
+        var act = () => Submission.Create("user-1", "sum-two-numbers", (Language)42, "code");
+
+        act.Should().Throw<UnsupportedLanguageException>();
+    }
 }
