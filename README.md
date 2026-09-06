@@ -1,5 +1,5 @@
 # rubric-runner (solution: `CodeJudge`)
-
+ 
 Backend for a mini code-submission and evaluation platform. Users submit a solution in **C#, Python or JavaScript**; the API accepts it instantly and a background worker grades it against a three-item rubric — **Security → Compiles → Test** — using a small problem catalog with several test cases per problem. Status and per-rubric results are exposed over a versioned REST API. Built with **.NET 10**, **Clean Architecture** (deliberately without CQRS/MediatR), **EF Core 10 + PostgreSQL**, and the **database-as-queue** pattern for reliable asynchronous processing.
 
 > **Status:** design complete; implementation verified end to end. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for milestones, known limitations and remaining work. Full design in [`docs/`](docs/).
